@@ -11,11 +11,13 @@ class PostgresMigrationRunner implements MigrationRunner {
   final PostgreSQLConnection connection;
   final Queue<Migration> _migrationQueue = new Queue();
   bool _connected = false;
+  bool _modelsInSingleFile;
 
   PostgresMigrationRunner(this.connection,
-      {Iterable<Migration> migrations = const [], bool connected: false}) {
+      {Iterable<Migration> migrations = const [], bool connected: false, bool modelsInSingleFile: false}) {
     if (migrations?.isNotEmpty == true) migrations.forEach(addMigration);
     _connected = connected == true;
+    _modelsInSingleFile = modelsInSingleFile;
   }
 
   @override
@@ -26,8 +28,12 @@ class PostgresMigrationRunner implements MigrationRunner {
   Future _init() async {
     while (_migrationQueue.isNotEmpty) {
       var migration = _migrationQueue.removeFirst();
-      var path = await absoluteSourcePath(migration.runtimeType);
-      migrations.putIfAbsent(path.replaceAll("\\", "\\\\"), () => migration);
+      if (_modelsInSingleFile) {
+        migrations.putIfAbsent(migration.runtimeType.toString(), () => migration);
+      }else {
+        var path = await absoluteSourcePath(migration.runtimeType);
+        migrations.putIfAbsent(path.replaceAll("\\", "\\\\"), () => migration);
+      }
     }
 
     if (!_connected) {
